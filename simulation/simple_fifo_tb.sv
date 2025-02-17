@@ -66,32 +66,26 @@ initial begin
   $display("[T=%0t], Finished random testing", $realtime);
 end
 
-
 //self checking
 always_ff@(negedge clk) begin
   if(rst) begin
     count <= 0;
     fifo_sw_model.delete();
   end else begin
-    
     if(count < DEPTH && wr == 1'b1) begin
       count <= count + 1;
       fifo_sw_model.push_front(data_in);
     end
-
     if(count > 0 && rd == 1'b1 && empty == 1'b0) begin
       count <= count - 1;
       expected_rd_data = fifo_sw_model.pop_back();
     end
-
     if(count < DEPTH && wr == 1'b1 && count > 0 && rd == 1'b1 && empty == 1'b0) begin
         count <= count;
     end
-
     if(rd == 1'b1 && empty == 1'b0) begin
       assert (data_out == expected_rd_data) else $error("[T=%0t], Data error, actual: %u, expected: %u", $realtime, data_out, expected_rd_data);
     end
-
   end
 end
 
