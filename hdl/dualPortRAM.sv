@@ -1,17 +1,19 @@
-module dualPortRAM#(parameter WIDTH = 8)( //only 8-36 supported
+module dualPortRAM#(parameter WIDTH = 8, //only 8-36 supported
+                    parameter ADDRW = 3,
+                    parameter ENW = 1)( 
 
       output logic [WIDTH - 1 : 0] DOA,       // Output port-A data, width defined by READ_WIDTH_A parameter
       output logic [WIDTH - 1 : 0] DOB,       // Output port-B data, width defined by READ_WIDTH_B parameter
-      input [$clog2(4096) - 1: 0] ADDRA,   // based on max depth defined in table below
-      input [$clog2(4096) - 1: 0] ADDRB,   // based on max depth defined in table below
+      input [ADDRW - 1: 0] ADDRA,   // based on max depth defined in table below
+      input [ADDRW - 1: 0] ADDRB,   // based on max depth defined in table below
       input CLKA,     // 1-bit input port-A clock
       input CLKB,     // 1-bit input port-B clock
       input [WIDTH - 1 : 0] DIA,       // Input port-A data, width defined by WRITE_WIDTH_A parameter
       input [WIDTH - 1 : 0] DIB,       // Input port-B data, width defined by WRITE_WIDTH_B parameter
       input RSTA,     // 1-bit input port-A reset
       input RSTB,     // 1-bit input port-B reset
-      input [3:0] WEA,       // Input port-A write enable, width defined by Port A depth
-      input [3:0] WEB        // Input port-B write enable, width defined by Port B depth
+      input WEA,       // Input port-A write enable, width defined by Port A depth
+      input WEB       // Input port-B write enable, width defined by Port B depth
 );
 
 
@@ -29,47 +31,20 @@ module dualPortRAM#(parameter WIDTH = 8)( //only 8-36 supported
    //      5-9       |  "36Kb"   |    4096   |    12-bit     |    1-bit    //
    //////////////////////////////////////////////////////////////////////////
 
-   genvar i;
-   generate
-    localparam addrw = 12;
-    localparam wew = 4;
-    if(WIDTH <= 9) begin
-        logic [addrw - 1 : 0] addra_int, addrb_int;
-        logic [0:0] wea_int, web_int;
-
-        for(i = 0; i < addrw; i++) begin
-            assign addra_int[i] = ADDRA[i];
-            assign addrb_int[i] = ADDRB[i];
-        end
-        assign wea_int[0] = WEA[0];
-        assign web_int[0] = WEB[0];
-
-    end else if(WIDTH <= 18) begin
-        logic [addrw - 2 : 0] addra_int, addrb_int;
-        logic [wew - 3 : 0] wea_int, web_int;
-
-        for(i = 0; i < addrw; i++) begin
-            assign addra_int[i] = ADDRA[i];
-            assign addrb_int[i] = ADDRB[i];
-        end
-        assign wea_int = WEA[1:0];
-        assign web_int = WEB[1:0];
-    end else begin
-        logic [addrw - 3 : 0] addra_int, addrb_int;
-        logic [wew - 1 : 0] wea_int, web_int;
-
-        for(i = 0; i < addrw; i++) begin
-            assign addra_int[i] = ADDRA[i];
-            assign addrb_int[i] = ADDRB[i];
-        end
-        assign wea_int = WEA;
-        assign web_int = WEB;
+        logic [ADDRW - 1 : 0] addra_int, addrb_int;
+        logic [ENW - 1 : 0] wea_int, web_int;
+genvar i;
+generate
+    for(i = 0; i < $size(addra_int); i++) begin
+        assign addra_int[i] = ADDRA[i];
+        assign addrb_int[i] = ADDRB[i];
     end
-
-
-   endgenerate
+    for(i = 0; i < $size(wea_int); i++) begin
+      assign wea_int[i] = WEA;
+      assign web_int[i] = WEB;
+    end
+endgenerate
           
-
    BRAM_TDP_MACRO #(
       .BRAM_SIZE("36Kb"), // Target BRAM: "18Kb" or "36Kb" 
       .DEVICE("7SERIES"), // Target device: "7SERIES" 
@@ -80,7 +55,7 @@ module dualPortRAM#(parameter WIDTH = 8)( //only 8-36 supported
       .INIT_FILE ("NONE"),
       .READ_WIDTH_A (WIDTH),   // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
       .READ_WIDTH_B (WIDTH),   // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
-      .SIM_COLLISION_CHECK ("ALL"), // Collision check enable "ALL", "WARNING_ONLY",
+      .SIM_COLLISION_CHECK ("NONE"), // Collision check enable "ALL", "WARNING_ONLY",
                                     //   "GENERATE_X_ONLY" or "NONE" 
       .SRVAL_A(36'h00000000), // Set/Reset value for port A output
       .SRVAL_B(36'h00000000), // Set/Reset value for port B output
@@ -254,7 +229,7 @@ module dualPortRAM#(parameter WIDTH = 8)( //only 8-36 supported
       .RSTA(RSTA),     // 1-bit input port-A reset
       .RSTB(RSTB),     // 1-bit input port-B reset
       .WEA(wea_int),       // Input port-A write enable, width defined by Port A depth
-      .WEB(wea_int)        // Input port-B write enable, width defined by Port B depth
+      .WEB(web_int)        // Input port-B write enable, width defined by Port B depth
    );
 
    // End of BRAM_TDP_MACRO_inst instantiation

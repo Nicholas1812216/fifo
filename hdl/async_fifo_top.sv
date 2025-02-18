@@ -2,7 +2,8 @@ import async_pkg::*;
 
 module async_fifo_top #(parameter WIDTH = 8,
                         parameter ADDRWIDTH = 3,
-                        parameter SYNCWIDTH = 2)( //will have to be derived in a wrapper module? This is frustrating
+                        parameter SYNCWIDTH = 2,
+                        parameter ENW = 1)( //will have to be derived in a wrapper module? This is frustrating
   input reset,
   //rdclk domain
   input rd,
@@ -19,9 +20,11 @@ module async_fifo_top #(parameter WIDTH = 8,
 );
 
    (* ASYNC_REG = "TRUE" *) logic [SYNCWIDTH-1:0] rdrst_sync, wrrst_sync;
-   logic [SYNCWIDTH : 0][ADDRWIDTH : 0] rdGreyWrSync, wrGreyRdSync;
+   (* ASYNC_REG = "TRUE" *) logic [SYNCWIDTH : 0][ADDRWIDTH : 0] rdGreyWrSync, wrGreyRdSync;
    logic [ADDRWIDTH : 0] rdAddr, wrAddr, rdGreyPtr, wrGreyPtr, wbnext, wgnext, rbnext, rgnext;
+   logic [ADDRWIDTH - 1 : 0] bWrAddr;
    logic wr_int, rd_int;
+   logic [WIDTH - 1 : 0] datain_int;
 
 
    assign wbnext = (full == 1'b0 && wr == 1'b1) ? wrAddr + 1'b1 : wrAddr;
@@ -31,6 +34,8 @@ module async_fifo_top #(parameter WIDTH = 8,
     wrrst_sync <= {wrrst_sync[$size(wrrst_sync) - 1 : 0], reset}; //cdc sync
     rdGreyWrSync <= {rdGreyWrSync[$size(rdGreyWrSync) - 1 : 0], rdGreyPtr}; //cdc sync
     wr_int <= 1'b0;
+    datain_int <= datain;
+    bWrAddr <= wrAddr[ADDRWIDTH - 1 : 0]; //pipeline reg delay to align correct address with wr_int/data_int
     if(wrrst_sync[$size(wrrst_sync) - 1]) begin
         wrAddr <= '0;
         full <= 1'b1; //default pessimism
@@ -59,29 +64,28 @@ module async_fifo_top #(parameter WIDTH = 8,
         rd_int <= empty == 1'b0 && rd == 1'b1;
         rdAddr <= rbnext;
         rdGreyPtr <= rgnext;
-    end
-
-    empty <= wrGreyRdSync[SYNCWIDTH] == rgnext;
+        empty <= wrGreyRdSync[SYNCWIDTH] == rgnext;
+    end   
 
   end
 
 
 
-// dualPortRAM#(.WIDTH(WIDTH))  tdp_ram( //only 8-36 supported
+dualPortRAM#(.WIDTH(WIDTH), .ADDRW(ADDRWIDTH),.ENW(ENW))  tdp_ram( //only 8-36 supported
 
-//       .DOA(data_out),       // Output port-A data, width defined by READ_WIDTH_A parameter
-//       .DOB(),       // Output port-B data, width defined by READ_WIDTH_B parameter
-//       .ADDRA(rdAddr),   // based on max depth defined in table below
-//       .ADDRB(wrAddr),   // based on max depth defined in table below
-//       .CLKA(rdclk),     // 1-bit input port-A clock
-//       .CLKB(wrclk),     // 1-bit input port-B clock
-//       .DIA('0),       // Input port-A data, width defined by WRITE_WIDTH_A parameter
-//       .DIB(data_in),       // Input port-B data, width defined by WRITE_WIDTH_B parameter
-//       .RSTA(1'b0),     // 1-bit input port-A reset
-//       .RSTB(wrrst_sync[$size(wrrst_sync) - 1]),     // 1-bit input port-B reset
-//       .WEA('0),       // Input port-A write enable, width defined by Port A depth
-//       .WEB(wr_int)        // Input port-B write enable, width defined by Port B depth
-// );
+      .DOA(dataout),       // Output port-A data, width defined by READ_WIDTH_A parameter
+      .DOB(),       // Output port-B data, width defined by READ_WIDTH_B parameter
+      .ADDRA(rdAddr[$size(rdAddr) - 2 : 0]),   // based on max depth defined in table below
+      .ADDRB(bWrAddr),   // based on max depth defined in table below
+      .CLKA(rdclk),     // 1-bit input port-A clock
+      .CLKB(wrclk),     // 1-bit input port-B clock
+      .DIA('0),       // Input port-A data, width defined by WRITE_WIDTH_A parameter
+      .DIB(datain_int),       // Input port-B data, width defined by WRITE_WIDTH_B parameter
+      .RSTA(1'b0),     // 1-bit input port-A reset
+      .RSTB(wrrst_sync[$size(wrrst_sync) - 1]),     // 1-bit input port-B reset
+      .WEA('0),       // Input port-A write enable, width defined by Port A depth
+      .WEB(wr_int)       // Input port-B write enable, width defined by Port B depth
+);
 
 
 endmodule
