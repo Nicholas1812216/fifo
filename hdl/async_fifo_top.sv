@@ -23,7 +23,7 @@ module async_fifo_top #(parameter WIDTH = 8,
    (* ASYNC_REG = "TRUE" *) logic [SYNCWIDTH : 0][ADDRWIDTH : 0] rdGreyWrSync, wrGreyRdSync;
    logic [ADDRWIDTH : 0] rdAddr, wrAddr, rdGreyPtr, wrGreyPtr, wbnext, wgnext, rbnext, rgnext;
    logic [ADDRWIDTH - 1 : 0] bWrAddr;
-   logic wr_int, rd_int;
+   logic wr_int;
    logic [WIDTH - 1 : 0] datain_int;
 
 
@@ -61,7 +61,6 @@ module async_fifo_top #(parameter WIDTH = 8,
         rdAddr <= '0;
         empty <= 1'b1; //default pessimism
     end else begin
-        rd_int <= empty == 1'b0 && rd == 1'b1;
         rdAddr <= rbnext;
         rdGreyPtr <= rgnext;
         empty <= wrGreyRdSync[SYNCWIDTH] == rgnext;
